@@ -1,0 +1,1267 @@
+on mouseUp
+   # lock screen
+   --    answer information "This button will convert the currently displayed status of the lighting control system into a scene."\
+   --          &"  It will then load that scene into the Program Events screen of the standard software."\
+   --    &"  There you can review and modify that scene."\
+   --    &"  Do you want to continue?" with "No" or "Yes" titled "Information"
+   --    if it is "No" then exit mouseup
+   -- start 7/23/18 rm
+   answer information "This button will convert the currently displayed status of the lighting control system into a scene."\
+         &"  It will then load that scene into the Program Events screen of the standard software."\
+         &"  There you can review and modify that scene."\
+         &"  Do you want to include all controls, or only the ones that have been hilited by clicking on them while pressing the h key?" with "Cancel" or "Hilited" or "All" titled "Information"
+   if it is "Cancel" then exit mouseup
+   if it is "Hilited" then put true into tHilited
+   -- end 7/23/18 rm
+   global SceneFile,SequenceClass,MaxSeqLen,circuitlist,gSceneNames,stdstckname
+   local Lintensity
+   put empty into temp
+   ask "Name of the New Scene (Don't use colons, semicolons, or dashes) " with temp
+   if the result is "cancel" then exit mouseup
+   if matchtext(it,"^-") then
+      answer error "Scene names cannot start with a '-'." titled "Error"
+      exit mouseup
+   end if
+   if matchtext(it,"^ ") then
+      answer error "Scene names cannot start with a space." titled "Error"
+      exit mouseup
+   end if
+   if matchtext(it,":") then
+      answer error "Scene names cannot contain colons." titled "Error"
+      exit mouseup
+   end if
+   if matchtext(it,",") then
+      answer error "Scene names cannot contain commas." titled "Error"
+      exit mouseup
+   end if
+   if matchtext(it,";") then
+      answer error "Scene names cannot contain semicolons." titled "Error"
+      exit mouseup
+   end if
+   if matchtext(it," $") then
+      answer error "Scene names cannot end with a space." titled "Error"
+      exit mouseup
+   end if
+   put it into NewScene
+   if NewScene is empty then exit mouseup
+   # repeat with x=1 to the number of lines in SceneFile
+   # set cursor to busy
+   # put line x of scenefile into checkline
+   # if the first character of checkline is "-" then next repeat
+   # if checkline is NewScene then
+   # answer error "Name already used.  Try again." titled "Error"
+   # exit mouseup
+   # end if
+   # end repeat
+   repeat for each line L in SceneFile ## replaced above with this 4/6/10 RM
+      set cursor to busy
+      if the first character of L is "-" then next repeat
+      if L is NewScene then
+         answer error "Name already used.  Try again." titled "Error"
+         exit mouseup
+      end if
+   end repeat
+   
+   set the casesensitive to true  ## don't really need to since matchtext is already casesensitive for PCRE compatibility
+   put empty into Lbtnnames
+   # repeat with b = 1 to the number of buttons in this group
+   repeat with b = 1 to the number of buttons in this cd ## 7/30/12 RM
+      set cursor to busy
+      if there is not a button b then
+         next repeat
+      end if
+      if the label of btn b is empty then
+         put the short name of btn b into Lshortname
+      else
+         put the label of btn b into Lshortname
+      end if
+      
+      //put the blendlevel of btn b into Lintensity
+      
+      
+      if the last char of the label of btn b is not a number then ## use this to prevent linked btns from creating multiple scene entries for the same device
+         next repeat
+      end if
+      
+      if tHilited is true then
+         if Lintensity >= 0 then
+            put Lshortname & ":" & Lintensity & return after Lbtnnames
+         end if
+      else
+         put Lshortname & ":" & Lintensity & return after Lbtnnames
+      end if
+      
+      
+      put the Ptype of btn b into Ltype
+      # if Ltype is not among the items of "LTS,LTSD,LTR,LTRD" then
+      # if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD" then ## 5/6/11 RM
+      # if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs" then ## 6/22/12 RM
+      # if Ltype is among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors" then ## 4/30/14 rm
+      --    if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors,LTRDho" then ## 6/12/15 rm
+      --       if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors,LTRDho,bblLTRD,bblLTRDpower" then -- 8/7/15 rm
+      if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors,LTRDho,bblLTRD,bblLTRDpower,bblLTR" then -- 7/19/18 rm
+         next repeat
+      end if
+      if tHilited is true then -- 7/23/18 rm
+         if not(the blendlevel of btn b =0) then
+            if the label of btn b is empty then 
+               put the short name of btn b into Lshortname 
+            else
+               put the label of btn b into Lshortname
+            end if // short name of button b has been chnaged to label of btn b and if statement added in case the button does not have a label
+         end if
+      else
+         put the label of btn b&return after Lbtnnames
+      end if
+   end repeat
+   
+   //put the short name of group b into LgroupName
+   //if not matchtext(LgroupName, ".*\d$") then 
+   //next repeat
+   //end if
+   
+   
+   repeat with b = 1 to the number of groups in this cd 
+      if there is not a group b then next repeat
+      if the disabled of group b is true then next repeat
+      
+      put the short name of group b into Lshortname
+      if the last char of Lshortname is not a number then next repeat
+      
+      put the label of group b into Llabel
+      if Llabel is empty then next repeat  -- Skip groups with empty labels
+      
+      put the pType of group b into Ltype
+      if Ltype is among the items of "DMX2channelColorGroup" then
+         if tHilited is true then 
+            if not(the blendlevel of group "DMXoutDataGrid" of group b =0) then
+               put the short name of group b&return after Lgroups
+               //else
+               //put the short name of group b&return after Lgroups
+            end if
+         else
+            put the short name of group b&return after Lgroups //put the short name of group b&return after LgroupNames
+         end if
+      end if
+      
+      -- Loop through DMXoutDataGrid1..5
+      if there is a group "DMXoutDataGrid"  of group b then
+         repeat with N = 1 to 5
+            if N = 1 then
+               put "DMXoutDataGrid" into tGridName
+            else
+               put "DMXoutDataGrid" & N into tGridName
+            end if
+            
+            -- Check if this DMX grid exists
+            if there is a group tGridName of group b then
+               
+               -- Check if the channel exists
+               if there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" \
+                     of group "dgListMask" of group tGridName of group b then
+                  
+                  -- Extract the intensity
+                  put field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" \
+                        of group tGridName of group b into Lintensity
+               end if
+               
+               
+               
+               if Lintensity is empty then
+                  put "Error: No valid DMXoutDataGrid found for " & Lshortname & return after debugLog
+                  next repeat
+               end if
+               
+               --if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group b) then
+               --put "Error: Field Channel Level 0001 missing in " & Lshortname & return after debugLog
+               --next repeat
+               --end if
+               -- Extract intensity from DMXoutDataGrid
+               
+               --put the field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group b into Lintensity
+               
+               
+               if Lintensity ="!" then 
+                  put char (length(Lgroups) - 3) to length(Lgroups) of Lgroups into chann
+                  answer question "Channel number " & chann &" is not communicating. Do you wish to cancel and check it or Continue without that channel?" with "Continue" or "Cancel" titled "Question"
+                  
+                  if it is "Cancel" then
+                     exit mouseup
+                  else if it is "Continue" then
+                     next repeat
+                     
+                     //put Lshortname & " - Intensity: " & Lintensity & return after LgroupNames
+                     //put Lshortname & return after Lgroups
+                     //put Lintensity & return after rawdata
+                     
+                     -- 8/9/18 rm
+                  end if
+                  
+               else if Lintensity is not empty and Lintensity >= 0 then
+                  put Lshortname&"_"& N & " - Intensity: " & Lintensity & return after LgroupNames
+                  put Lshortname&N after LNewGroup
+                  //put Lshortname & return after Lgroups
+                  put Lintensity & return after rawdata
+               end if 
+            end if
+         end repeat
+      end if 
+      
+   end repeat
+   if debugLog is not empty then
+      //answer debugLog
+   end if
+   //put Lshortname & return after Lgroups
+   //answer Lgroups //contains DMXgroup102072
+   
+   //answer rawdata
+   sort Lbtnnames ascending
+   sort LgroupNames ascending
+   sort Lgroups ascending
+   put Lbtnnames into Lbtnnames2
+   put Lgroups into LgroupNames2
+   put newscene into Lscenedisplay
+   
+   repeat for each line L in Lbtnnames2
+      set cursor to busy
+      # if the icon of btn L is 331 then
+      # next rep
+      if there is a btn L then
+         if the icon of btn L is among the items of "331,12414,12415,12416,12417,12422,12426" then
+            //answer "Button " & L & " has a matching icon" titled "Debug Info"
+         end if
+      else
+         //answer "Error: Button " & L & " does not exist" titled "Debug Info"
+         next repeat
+      end if
+      
+      if the icon of btn L is among the items of "331,12414,12415,12416,12417,12422,12426" then ## changed from above 12/23/08 RM
+         next repeat
+      end if
+      # put word 1 of the Ptype of btn L into Ltype
+      put the Ptype of btn L into Ltype ## 7/30/15 rm
+      put word 1 of Ltype into Ltype ## chunk expressions generally don't work on properties.  don't know why it seems to have been working.  7/30/15 rm
+      put item 2 of L into Lintensity
+      switch Ltype
+         case "LTR"
+            put buildRelaysequence(L) into Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTRD" ## 5/6/11 RM
+            put buildDimsequence(L) into Lnextevent
+            put return&buildRelaysequence(L) after Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTD" ## 5/6/11 RM
+            put buildDimsequence(L) into Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTS"
+            put buildShadesequence(L) into Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTSD"
+            put the icon of btn L into Licon
+            put line 1 of the label of btn L into Llabel
+            switch Llabel
+               case "100%"
+                  # put buildShadesequence(L) into Lnextevent
+                  put buildDimsequence(L) into Lnextevent ## changed from above 12/23/08 RM
+                  put return&buildShadesequence(L) after Lnextevent
+                  break
+               case "!"
+                  next repeat
+                  break
+               default
+                  put the PDimshadeOpenOffIcon of btn L into LshadeOpenOffIcon
+                  put the PDimshadeCloseOffIcon of btn L into LshadeCloseOffIcon
+                  switch Licon
+                     case LshadeOpenOffIcon
+                        put buildShadesequence(L) into Lnextevent
+                        break
+                     case LshadeCloseOffIcon
+                        put buildShadesequence(L) into Lnextevent
+                        break
+                     default
+                        put buildDimsequence(L) into Lnextevent
+                        break
+                  end switch
+                  break
+            end switch
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTRDs" ## 6/22/12 RM
+            put buildAnalogDimsequence(L) into Lnextevent
+            # put buildAnalogDimsequence(L) into LMighBeNextevent
+            # switch LMighBeNextevent
+            # case "Invalid"
+            # break
+            # default
+            # put LMighBeNextevent&return into Lnextevent
+            # break
+            # end switch
+            put return&buildRelaysequence(L) after Lnextevent
+            # put buildRelaysequence(L) after Lnextevent  ## 7/26/12 RM
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTDs" ## 6/22/12 RM
+            put buildAnalogDimsequence(L) into Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "LTRDho" ## 7/30/15 RM
+            if line 1 of the label of btn L is "HO" then
+               put buildHighOverridesequence(L) into Lnextevent
+            else
+               put buildDimsequence(L) into Lnextevent
+            end if
+            put return&buildRelaysequence(L) after Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "bblLTRD" -- 8/7/15 RM
+            --            put buildDimsequence(L) into Lnextevent -- need to make different handler to handle BBL dimmers. 8/7/15 rm
+            --            put return&buildRelaysequence(L) after Lnextevent
+            put buildRelaysequence(L) into Lnextevent -- 8/7/15 rm
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "bblLTRDpower" -- 8/7/15 RM
+            --            put buildDimsequence(L) into Lnextevent -- need to make different handler to handle BBL dimmers. 8/7/15 rm
+            --            put return&buildRelaysequence(L) after Lnextevent
+            put buildRelaysequence(L) into Lnextevent -- 8/7/15 rm
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         case "bblLTR" -- 7/19/18 rm
+            put buildRelaysequence(L) into Lnextevent
+            if Lnextevent is not empty then
+               put return&Lnextevent after Lscenedisplay
+            end if
+            break
+         default
+            next repeat
+            break
+      end switch
+      if Lnextevent is not empty then
+         put return & Lshortname & ":" & Lintensity & " " & Lnextevent after Lscenedisplay
+      end if
+   end repeat
+   repeat for each line L in Lgroups
+      //answer L
+      set cursor to busy
+      if not (there is a group L) then
+         put "Error: Group '" & L & "' not found" & return after debugLog
+         next repeat
+      end if
+      
+      if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group L) then
+         put "Error: Field ChannelLevel 0001 is missing in group " & L & return after debugLog
+         next repeat
+         
+      end if
+      
+      
+      
+      put the Channel_Number of group L into channel
+      put the pType of group L into Ltype
+      put word 1 of Ltype into Ltype
+      
+      switch Ltype
+         case "DMX2channelColorGroup"
+            -- Loop through possible DMXoutDataGrid groups (DMXoutDataGrid1..5)
+            repeat with N = 1 to 5
+               if N = 1 then
+                  put "DMXoutDataGrid" into tGridName
+               else
+                  put "DMXoutDataGrid" & N into tGridName
+               end if
+               
+               if there is a group tGridName of group L then
+                  if there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group tGridName of group L then
+                     put the text of field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group tGridName of group L into Rawdata
+                     if Rawdata is not empty and Rawdata <> "!" then
+                        put buildDMX2channelColorSequence(L, tGridName, Rawdata) into Lnextevent
+                        if Lnextevent is not empty then
+                           put return&Lnextevent after Lscenedisplay
+                        end if
+                     end if
+                  else
+                     put "Error: Field ChannelLevel 0001 missing in " & tGridName & " of group " & L & return after debugLog
+                  end if
+               end if
+            end repeat
+            break
+         default
+            next repeat
+      end switch
+      
+      
+      
+      --if there is a group "DMXoutDataGrid" of group L then
+      --if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group L) then
+      --put "Error: Field ChannelLevel 0001 missing in DMXoutDataGrid of group " & L & return after debugLog
+      --else
+      ----put the text of field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group L into Rawdata
+      --if Rawdata is not empty and Rawdata is not "!" then
+      --put buildDMX2channelColorSequence(L, Rawdata) & return after Lscenedisplay
+      --end if
+      --end if
+      --end if
+      
+      -- Process DMXoutDataGrid2
+      --if there is a group "DMXoutDataGrid2" of group L then
+      --if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid2" of group L) then
+      --put "Error: Field ChannelLevel 0001 missing in DMXoutDataGrid2 of group " & L & return after debugLog
+      --else
+      --put the text of field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid2" of group L into Rawdata
+      --if Rawdata is not empty and Rawdata is not "!" then
+      --put buildDMX2channelColorSequence(L, Rawdata) & return after Lscenedisplay
+      ---end if
+      --end if
+      --end if
+      
+      //answer channel
+      
+      
+      #put the pType of group L into Ltype 
+      #put word 1 of Ltype into Ltype 
+      
+      #switch Ltype
+      //put the label of group L into Llabel
+      //if Llabel is empty then next repeat 
+      #case "DMX2channelColorGroup"
+      #put buildDMX2channelColorSequence(L,Rawdata) into Lnextevent
+      #if Lnextevent is not empty then
+      #put return&Lnextevent after Lscenedisplay
+      #end if
+      #break
+      //next repeat
+      #end switch
+   end repeat
+   #
+   -- Output debug log if needed
+   if debugLog is not empty then
+      answer debugLog
+   end if
+   
+   
+   if gSceneNames is empty then
+      put NewScene into gSceneNames
+   else
+      put return & NewScene after gSceneNames
+   end if
+   toplevel stack stdstckname
+   set the defaultstack to stdstckname
+   show stack stdstckname  ## 12/25/05 RM
+   --    go to cd "System Manager" of stack stdstckname
+   go to cd "Scenes" of stack stdstckname -- 7/19/18 rm
+   put NewScene into line (the number of lines in cd fld "Scene List"+1) of cd fld "Scene List"
+   put Lscenedisplay into line (the number of lines in SceneFile+1) of SceneFile
+   put NewScene into CurScene
+   put empty into Sequence
+   set the wholematches to true
+   put lineoffset(curscene,scenefile) into Lwhichline
+   put the number of lines in SceneFile into Llastline
+   repeat with q2 = Lwhichline+1 to Llastline
+      if the first character of line q2 of SceneFile is not "-" then exit repeat
+      put return & item 2 to 8 of line q2 of SceneFile after the last line of Sequence ## 12/27/05 RM cnahged from 7 to 8
+   end repeat
+   delete the first line of Sequence
+   put 1000 into MaxSeqLen
+   put CurScene into SequenceName
+   -- Send intensity data to Program Events
+   push card
+   go to card "Program Events"
+   put "Scene Manager Sequence" into SequenceClass
+   send "LoadSequence SequenceName, Sequence" to card "Program Events"
+   
+end mouseUp
+
+function buildswitchsequence btnname
+  put "0,0,0,0,0,0,0,0" into Leventseq
+  set the itemdelimiter to "("
+  put item 1 of the tooltip of btn btnname into Ltoolinfo
+  put comma & item 2 of the tooltip of btn btnname after Ltoolinfo
+  set the itemdelimiter to comma
+  
+  put icon of btn btnname into Lstatus
+  put item 1 of  Ltoolinfo into item 1 of Leventseq
+  put item 2 of the Pnodenum of btn btnname into item 2 of Leventseq
+  put item 1 of the Pnodenum of btn btnname into item 3 of Leventseq
+  switch Lstatus
+  case "!"
+    break
+  case "?"
+    break
+  case "1068"  ##on&open
+    put "-TurnON "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 1 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  case "1064"  ##on&closed
+    put "-TurnON "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 1 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  case "1066"  ##off&open
+    put "-TurnOFF "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 0 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  case "1062"  ##off&closed
+    put "-TurnOFF "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 0 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  default
+    break
+  end switch
+  
+end buildswitchsequence
+
+
+function buildDMX2channelColorSequence tGroupName, tGridName,tIntensity
+   //put ie dgdata of group "DMXoutDataGrid" of group tGroupName into tTempArray
+   put "" into trawdata
+   put tIntensity into trawdata
+   if trawdata = "!" then
+      exit buildDMX2channelColorSequence
+   end if
+   
+   //put the ChannelNumber of group tGridName  into tChannel_Number
+   --put the dgData of group tGridName into taray
+   --put the dgDataOfIndex[1] of group tGridName into tData
+   --put tData["ChannelNumber"] into tChannel_Number
+   put the dgData of group tGridName of group tGroupName into tnewarray
+   put tnewarray[1]["ChannelNumber"] into channelL
+   
+   put channelL into tChannel_Number
+   //put the ChannelNumber of group tGridName of group tGroupName into tChannel_Number
+   //answer the customKeys of group tGridName of group tGroupName
+   
+   //put tChannel_Number + 0 into tChannel_Number
+   
+   if tChannel_Number is empty then
+      put "ERROR: Channel_Number empty for " & tGridName & return after debugLog
+      exit buildDMX2channelColorSequence
+   end if
+   
+   
+   
+   //answer tChannel_Number
+   put "0,0,0,0,0,0,0,0"into Leventseq // rm the additional &return&"0,0,0,0,0,0,0,0"  for teh second line
+   put tGroupName into item 1 of Leventseq
+   put the pDMXnodeNum of group tGridName of group tGroupName into tNode
+   put item 2 of tNode into item 2 of line 1 of Leventseq
+   put item 1 of tNode into item 3 of line 1 of Leventseq
+   //put item 2 of tNode into item 2 of line 2 of Leventseq
+   //put item 1 of tNode into item 3 of line 2 of Leventseq
+   put "-SetDMX "before item 1 of line 1 of Leventseq
+   //put "-SetDMX "before item 1 of line 2 of Leventseq
+   put 96 into tDMXcommand
+   
+   repeat with x =1 to 1 // changed from x=1 to 2 when each buttons had 2 channels
+      put 250 into item 4 of line x of Leventseq
+      //put 250 into item 4 of Leventseq
+      put tChannel_Number -1 into tDMXstartChannel
+      
+      
+      //if tChannel_Number is not an integer or tChannel_Number < 1 then
+      //next repeat
+      //end if
+      put 0 into tDMXnumberOfChannels 
+      put trawdata into tDMXvalue
+      if char 1 of tDMXvalue = CR then 
+         delete char 1 of tDMXvalue
+         
+      end if
+      -- 8/10/18 rm
+      if not(tDMXvalue is an integer) then
+         next repeat
+      end if
+      -- 8/10/18 rm
+      put baseconvert(tDMXstartChannel,10,2) into tDMXstartChannelBinary
+      repeat until the number of chars in tDMXstartChannelBinary is 9
+         put 0&tDMXstartChannelBinary into tDMXstartChannelBinary
+      end repeat
+      put char 1 to 4 of tDMXstartChannelBinary into tDMXstartChannelHi
+      put baseconvert(tDMXstartChannelHi,2,10) into tDMXstartChannelHi
+      put tDMXcommand bitOr tDMXstartChannelHi into tParm1
+      put char 5 to 9 of tDMXstartChannelBinary into tDMXstartChannelLo
+      put baseconvert(tDMXnumberOfChannels,10,2) into tDMXnumberOfChannelsBinary
+      repeat until the number of chars in tDMXnumberOfChannelsBinary is 9
+         put 0&tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinary
+      end repeat
+      put char 1 to 3 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryHi
+      put char 4 to 9 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryLo
+      put tDMXstartChannelLo&tDMXnumberOfChannelsBinaryHi into tParm2
+      put baseconvert(tParm2,2,10) into tParm2
+      put baseconvert(tDMXvalue,10,2) into tDMXvalueBinary
+      repeat until the number of chars in tDMXvalueBinary is 8
+         put 0&tDMXvalueBinary into tDMXvalueBinary
+      end repeat
+      put char 1 to 2 of tDMXvalueBinary into tDMXvalueBinaryHi
+      put char 3 to 8 of tDMXvalueBinary into tDMXvalueBinaryLo
+      put tDMXnumberOfChannelsBinaryLo&tDMXvalueBinaryHi into tParm3
+      put baseconvert(tParm3,2,10) into tParm3
+      put tDMXvalueBinaryLo&00 into tParm4
+      put baseconvert(tParm4,2,10) into tParm4
+      put tParm1 into item 5 of line x of Leventseq// changed that put tParm1 into item 5 of line x of Leventseq
+      put tParm2 into item 6 of line x of Leventseq
+      put tParm3 into item 7 of line x of Leventseq
+      put tParm4 into item 8 of line x of Leventseq
+   end repeat
+   
+   return Leventseq
+end buildDMX2channelColorSequence
+# lock screen
+--    answer information "This button will convert the currently displayed status of the lighting control system into a scene."\
+--          &"  It will then load that scene into the Program Events screen of the standard software."\
+--    &"  There you can review and modify that scene."\
+--    &"  Do you want to continue?" with "No" or "Yes" titled "Information"
+--    if it is "No" then exit mouseup
+-- start 7/23/18 rm
+answer information "This button will convert the currently displayed status of the lighting control system into a scene."\
+      &"  It will then load that scene into the Program Events screen of the standard software."\
+      &"  There you can review and modify that scene."\
+      &"  Do you want to include all controls, or only the ones that have been hilited by clicking on them while pressing the h key?" with "Cancel" or "Hilited" or "All" titled "Information"
+if it is "Cancel" then exit mouseup
+if it is "Hilited" then put true into tHilited
+-- end 7/23/18 rm
+global SceneFile,SequenceClass,MaxSeqLen,circuitlist,gSceneNames,stdstckname
+local Lintensity
+put empty into temp
+ask "Name of the New Scene (Don't use colons, semicolons, or dashes) " with temp
+if the result is "cancel" then exit mouseup
+if matchtext(it,"^-") then
+   answer error "Scene names cannot start with a '-'." titled "Error"
+   exit mouseup
+end if
+if matchtext(it,"^ ") then
+   answer error "Scene names cannot start with a space." titled "Error"
+   exit mouseup
+end if
+if matchtext(it,":") then
+   answer error "Scene names cannot contain colons." titled "Error"
+   exit mouseup
+end if
+if matchtext(it,",") then
+   answer error "Scene names cannot contain commas." titled "Error"
+   exit mouseup
+end if
+if matchtext(it,";") then
+   answer error "Scene names cannot contain semicolons." titled "Error"
+   exit mouseup
+end if
+if matchtext(it," $") then
+   answer error "Scene names cannot end with a space." titled "Error"
+   exit mouseup
+end if
+put it into NewScene
+if NewScene is empty then exit mouseup
+# repeat with x=1 to the number of lines in SceneFile
+# set cursor to busy
+# put line x of scenefile into checkline
+# if the first character of checkline is "-" then next repeat
+# if checkline is NewScene then
+# answer error "Name already used.  Try again." titled "Error"
+# exit mouseup
+# end if
+# end repeat
+repeat for each line L in SceneFile ## replaced above with this 4/6/10 RM
+   set cursor to busy
+   if the first character of L is "-" then next repeat
+   if L is NewScene then
+      answer error "Name already used.  Try again." titled "Error"
+      exit mouseup
+   end if
+end repeat
+
+set the casesensitive to true  ## don't really need to since matchtext is already casesensitive for PCRE compatibility
+put empty into Lbtnnames
+# repeat with b = 1 to the number of buttons in this group
+repeat with b = 1 to the number of buttons in this cd ## 7/30/12 RM
+   set cursor to busy
+   if there is not a button b then
+      next repeat
+   end if
+   if the label of btn b is empty then
+      put the short name of btn b into Lshortname
+   else
+      put the label of btn b into Lshortname
+   end if
+   
+   //put the blendlevel of btn b into Lintensity
+   
+   
+   if the last char of the label of btn b is not a number then ## use this to prevent linked btns from creating multiple scene entries for the same device
+      next repeat
+   end if
+   
+   if tHilited is true then
+      if Lintensity >= 0 then
+         put Lshortname & ":" & Lintensity & return after Lbtnnames
+      end if
+   else
+      put Lshortname & ":" & Lintensity & return after Lbtnnames
+   end if
+   
+   
+   put the Ptype of btn b into Ltype
+   # if Ltype is not among the items of "LTS,LTSD,LTR,LTRD" then
+   # if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD" then ## 5/6/11 RM
+   # if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs" then ## 6/22/12 RM
+   # if Ltype is among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors" then ## 4/30/14 rm
+   --    if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors,LTRDho" then ## 6/12/15 rm
+   --       if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors,LTRDho,bblLTRD,bblLTRDpower" then -- 8/7/15 rm
+   if Ltype is not among the items of "LTS,LTSD,LTR,LTRD,LTD,LTRDs,LTDs,LTR NoC,LTRD NoC,LTRalgSensors,LTRDho,bblLTRD,bblLTRDpower,bblLTR" then -- 7/19/18 rm
+      next repeat
+   end if
+   if tHilited is true then -- 7/23/18 rm
+      if not(the blendlevel of btn b =0) then
+         if the label of btn b is empty then 
+            put the short name of btn b into Lshortname 
+         else
+            put the label of btn b into Lshortname
+         end if // short name of button b has been chnaged to label of btn b and if statement added in case the button does not have a label
+      end if
+   else
+      put the label of btn b&return after Lbtnnames
+   end if
+end repeat
+
+//put the short name of group b into LgroupName
+//if not matchtext(LgroupName, ".*\d$") then 
+//next repeat
+//end if
+
+
+repeat with b = 1 to the number of groups in this cd 
+   if there is not a group b then next repeat
+   if the disabled of group b is true then next repeat
+   
+   put the short name of group b into Lshortname
+   if the last char of Lshortname is not a number then next repeat
+   
+   put the label of group b into Llabel
+   if Llabel is empty then next repeat  -- Skip groups with empty labels
+   
+   put the pType of group b into Ltype
+   if Ltype is among the items of "DMX2channelColorGroup" then
+      if tHilited is true then 
+         if not(the blendlevel of group "DMXoutDataGrid" of group b =0) then
+            put the short name of group b&return after Lgroups
+            //else
+            //put the short name of group b&return after Lgroups
+         end if
+      else
+         put the short name of group b&return after Lgroups //put the short name of group b&return after LgroupNames
+      end if
+   end if
+   
+   -- Loop through DMXoutDataGrid1..5
+   if there is a group "DMXoutDataGrid"  of group b then
+      repeat with N = 1 to 5
+         if N = 1 then
+            put "DMXoutDataGrid" into tGridName
+         else
+            put "DMXoutDataGrid" & N into tGridName
+         end if
+         
+         -- Check if this DMX grid exists
+         if there is a group tGridName of group b then
+            
+            -- Check if the channel exists
+            if there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" \
+                  of group "dgListMask" of group tGridName of group b then
+               
+               -- Extract the intensity
+               put field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" \
+                     of group tGridName of group b into Lintensity
+            end if
+            
+            
+            
+            if Lintensity is empty then
+               put "Error: No valid DMXoutDataGrid found for " & Lshortname & return after debugLog
+               next repeat
+            end if
+            
+            --if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group b) then
+            --put "Error: Field Channel Level 0001 missing in " & Lshortname & return after debugLog
+            --next repeat
+            --end if
+            -- Extract intensity from DMXoutDataGrid
+            
+            --put the field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group b into Lintensity
+            
+            
+            if Lintensity ="!" then 
+               put char (length(Lgroups) - 3) to length(Lgroups) of Lgroups into chann
+               answer question "Channel number " & chann &" is not communicating. Do you wish to cancel and check it or Continue without that channel?" with "Continue" or "Cancel" titled "Question"
+               
+               if it is "Cancel" then
+                  exit mouseup
+               else if it is "Continue" then
+                  next repeat
+                  
+                  //put Lshortname & " - Intensity: " & Lintensity & return after LgroupNames
+                  //put Lshortname & return after Lgroups
+                  //put Lintensity & return after rawdata
+                  
+                  -- 8/9/18 rm
+               end if
+               
+            else if Lintensity is not empty and Lintensity >= 0 then
+               put Lshortname&"_"& N & " - Intensity: " & Lintensity & return after LgroupNames
+               put Lshortname&N after LNewGroup
+               //put Lshortname & return after Lgroups
+               put Lintensity & return after rawdata
+            end if 
+         end if
+      end repeat
+   end if 
+   
+end repeat
+if debugLog is not empty then
+   //answer debugLog
+end if
+//put Lshortname & return after Lgroups
+//answer Lgroups //contains DMXgroup102072
+
+//answer rawdata
+sort Lbtnnames ascending
+sort LgroupNames ascending
+sort Lgroups ascending
+put Lbtnnames into Lbtnnames2
+put Lgroups into LgroupNames2
+put newscene into Lscenedisplay
+
+repeat for each line L in Lbtnnames2
+   set cursor to busy
+   # if the icon of btn L is 331 then
+   # next rep
+   if there is a btn L then
+      if the icon of btn L is among the items of "331,12414,12415,12416,12417,12422,12426" then
+         //answer "Button " & L & " has a matching icon" titled "Debug Info"
+      end if
+   else
+      //answer "Error: Button " & L & " does not exist" titled "Debug Info"
+      next repeat
+   end if
+   
+   if the icon of btn L is among the items of "331,12414,12415,12416,12417,12422,12426" then ## changed from above 12/23/08 RM
+      next repeat
+   end if
+   # put word 1 of the Ptype of btn L into Ltype
+   put the Ptype of btn L into Ltype ## 7/30/15 rm
+   put word 1 of Ltype into Ltype ## chunk expressions generally don't work on properties.  don't know why it seems to have been working.  7/30/15 rm
+   put item 2 of L into Lintensity
+   switch Ltype
+      case "LTR"
+         put buildRelaysequence(L) into Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTRD" ## 5/6/11 RM
+         put buildDimsequence(L) into Lnextevent
+         put return&buildRelaysequence(L) after Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTD" ## 5/6/11 RM
+         put buildDimsequence(L) into Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTS"
+         put buildShadesequence(L) into Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTSD"
+         put the icon of btn L into Licon
+         put line 1 of the label of btn L into Llabel
+         switch Llabel
+            case "100%"
+               # put buildShadesequence(L) into Lnextevent
+               put buildDimsequence(L) into Lnextevent ## changed from above 12/23/08 RM
+               put return&buildShadesequence(L) after Lnextevent
+               break
+            case "!"
+               next repeat
+               break
+            default
+               put the PDimshadeOpenOffIcon of btn L into LshadeOpenOffIcon
+               put the PDimshadeCloseOffIcon of btn L into LshadeCloseOffIcon
+               switch Licon
+                  case LshadeOpenOffIcon
+                     put buildShadesequence(L) into Lnextevent
+                     break
+                  case LshadeCloseOffIcon
+                     put buildShadesequence(L) into Lnextevent
+                     break
+                  default
+                     put buildDimsequence(L) into Lnextevent
+                     break
+               end switch
+               break
+         end switch
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTRDs" ## 6/22/12 RM
+         put buildAnalogDimsequence(L) into Lnextevent
+         # put buildAnalogDimsequence(L) into LMighBeNextevent
+         # switch LMighBeNextevent
+         # case "Invalid"
+         # break
+         # default
+         # put LMighBeNextevent&return into Lnextevent
+         # break
+         # end switch
+         put return&buildRelaysequence(L) after Lnextevent
+         # put buildRelaysequence(L) after Lnextevent  ## 7/26/12 RM
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTDs" ## 6/22/12 RM
+         put buildAnalogDimsequence(L) into Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "LTRDho" ## 7/30/15 RM
+         if line 1 of the label of btn L is "HO" then
+            put buildHighOverridesequence(L) into Lnextevent
+         else
+            put buildDimsequence(L) into Lnextevent
+         end if
+         put return&buildRelaysequence(L) after Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "bblLTRD" -- 8/7/15 RM
+         --            put buildDimsequence(L) into Lnextevent -- need to make different handler to handle BBL dimmers. 8/7/15 rm
+         --            put return&buildRelaysequence(L) after Lnextevent
+         put buildRelaysequence(L) into Lnextevent -- 8/7/15 rm
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "bblLTRDpower" -- 8/7/15 RM
+         --            put buildDimsequence(L) into Lnextevent -- need to make different handler to handle BBL dimmers. 8/7/15 rm
+         --            put return&buildRelaysequence(L) after Lnextevent
+         put buildRelaysequence(L) into Lnextevent -- 8/7/15 rm
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      case "bblLTR" -- 7/19/18 rm
+         put buildRelaysequence(L) into Lnextevent
+         if Lnextevent is not empty then
+            put return&Lnextevent after Lscenedisplay
+         end if
+         break
+      default
+         next repeat
+         break
+   end switch
+   if Lnextevent is not empty then
+      put return & Lshortname & ":" & Lintensity & " " & Lnextevent after Lscenedisplay
+   end if
+end repeat
+repeat for each line L in Lgroups
+   //answer L
+   set cursor to busy
+   if not (there is a group L) then
+      put "Error: Group '" & L & "' not found" & return after debugLog
+      next repeat
+   end if
+   
+   if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group L) then
+      put "Error: Field ChannelLevel 0001 is missing in group " & L & return after debugLog
+      next repeat
+      
+   end if
+   
+   
+   
+   put the Channel_Number of group L into channel
+   put the pType of group L into Ltype
+   put word 1 of Ltype into Ltype
+   
+   switch Ltype
+      case "DMX2channelColorGroup"
+         -- Loop through possible DMXoutDataGrid groups (DMXoutDataGrid1..5)
+         repeat with N = 1 to 5
+            if N = 1 then
+               put "DMXoutDataGrid" into tGridName
+            else
+               put "DMXoutDataGrid" & N into tGridName
+            end if
+            
+            if there is a group tGridName of group L then
+               if there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group tGridName of group L then
+                  put the text of field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group tGridName of group L into Rawdata
+                  if Rawdata is not empty and Rawdata <> "!" then
+                     put buildDMX2channelColorSequence(L, tGridName, Rawdata) into Lnextevent
+                     if Lnextevent is not empty then
+                        put return&Lnextevent after Lscenedisplay
+                     end if
+                  end if
+               else
+                  put "Error: Field ChannelLevel 0001 missing in " & tGridName & " of group " & L & return after debugLog
+               end if
+            end if
+         end repeat
+         break
+      default
+         next repeat
+   end switch
+   
+   
+   
+   --if there is a group "DMXoutDataGrid" of group L then
+   --if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group L) then
+   --put "Error: Field ChannelLevel 0001 missing in DMXoutDataGrid of group " & L & return after debugLog
+   --else
+   ----put the text of field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid" of group L into Rawdata
+   --if Rawdata is not empty and Rawdata is not "!" then
+   --put buildDMX2channelColorSequence(L, Rawdata) & return after Lscenedisplay
+   --end if
+   --end if
+   --end if
+   
+   -- Process DMXoutDataGrid2
+   --if there is a group "DMXoutDataGrid2" of group L then
+   --if not (there is a field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid2" of group L) then
+   --put "Error: Field ChannelLevel 0001 missing in DMXoutDataGrid2 of group " & L & return after debugLog
+   --else
+   --put the text of field "ChannelLevel 0001" of group "ChannelLevel" of group "dgList" of group "dgListMask" of group "DMXoutDataGrid2" of group L into Rawdata
+   --if Rawdata is not empty and Rawdata is not "!" then
+   --put buildDMX2channelColorSequence(L, Rawdata) & return after Lscenedisplay
+   ---end if
+   --end if
+   --end if
+   
+   //answer channel
+   
+   
+   #put the pType of group L into Ltype 
+   #put word 1 of Ltype into Ltype 
+   
+   #switch Ltype
+   //put the label of group L into Llabel
+   //if Llabel is empty then next repeat 
+   #case "DMX2channelColorGroup"
+   #put buildDMX2channelColorSequence(L,Rawdata) into Lnextevent
+   #if Lnextevent is not empty then
+   #put return&Lnextevent after Lscenedisplay
+   #end if
+   #break
+   //next repeat
+   #end switch
+end repeat
+#
+-- Output debug log if needed
+if debugLog is not empty then
+   answer debugLog
+end if
+
+
+if gSceneNames is empty then
+   put NewScene into gSceneNames
+else
+   put return & NewScene after gSceneNames
+end if
+toplevel stack stdstckname
+set the defaultstack to stdstckname
+show stack stdstckname  ## 12/25/05 RM
+--    go to cd "System Manager" of stack stdstckname
+go to cd "Scenes" of stack stdstckname -- 7/19/18 rm
+put NewScene into line (the number of lines in cd fld "Scene List"+1) of cd fld "Scene List"
+put Lscenedisplay into line (the number of lines in SceneFile+1) of SceneFile
+put NewScene into CurScene
+put empty into Sequence
+set the wholematches to true
+put lineoffset(curscene,scenefile) into Lwhichline
+put the number of lines in SceneFile into Llastline
+repeat with q2 = Lwhichline+1 to Llastline
+   if the first character of line q2 of SceneFile is not "-" then exit repeat
+   put return & item 2 to 8 of line q2 of SceneFile after the last line of Sequence ## 12/27/05 RM cnahged from 7 to 8
+end repeat
+delete the first line of Sequence
+put 1000 into MaxSeqLen
+put CurScene into SequenceName
+-- Send intensity data to Program Events
+push card
+go to card "Program Events"
+put "Scene Manager Sequence" into SequenceClass
+send "LoadSequence SequenceName, Sequence" to card "Program Events"
+
+end mouseUp
+
+function buildswitchsequence btnname
+  put "0,0,0,0,0,0,0,0" into Leventseq
+  set the itemdelimiter to "("
+  put item 1 of the tooltip of btn btnname into Ltoolinfo
+  put comma & item 2 of the tooltip of btn btnname after Ltoolinfo
+  set the itemdelimiter to comma
+  
+  put icon of btn btnname into Lstatus
+  put item 1 of  Ltoolinfo into item 1 of Leventseq
+  put item 2 of the Pnodenum of btn btnname into item 2 of Leventseq
+  put item 1 of the Pnodenum of btn btnname into item 3 of Leventseq
+  switch Lstatus
+  case "!"
+    break
+  case "?"
+    break
+  case "1068"  ##on&open
+    put "-TurnON "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 1 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  case "1064"  ##on&closed
+    put "-TurnON "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 1 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  case "1066"  ##off&open
+    put "-TurnOFF "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 0 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  case "1062"  ##off&closed
+    put "-TurnOFF "before item 1 of Leventseq
+    put 2 into item 4 of Leventseq
+    put 0 into item 6 of Leventseq
+    put the IOnumber of btn btnname into item 5 of Leventseq
+    return Leventseq
+    break
+  default
+    break
+  end switch
+  
+end buildswitchsequence
+
+
+function buildDMX2channelColorSequence tGroupName, tGridName,tIntensity
+   //put ie dgdata of group "DMXoutDataGrid" of group tGroupName into tTempArray
+   put "" into trawdata
+   put tIntensity into trawdata
+   if trawdata = "!" then
+      exit buildDMX2channelColorSequence
+   end if
+   
+   //put the ChannelNumber of group tGridName  into tChannel_Number
+   put the dgData of group tGridName into taray
+   put the dgDataOfIndex[1] of group tGridName into tData
+   put tData["ChannelNumber"] into tChannel_Number
+   //put the group "ChannelNumber" of group "dgList" of group dgListMask of group tGridName into chane
+   
+   //answer tChannel_Number
+   put "0,0,0,0,0,0,0,0"into Leventseq // rm the additional &return&"0,0,0,0,0,0,0,0"  for teh second line
+   put tGroupName into item 1 of Leventseq
+   put the pDMXnodeNum of group tGridName of group tGroupName into tNode
+   put item 2 of tNode into item 2 of line 1 of Leventseq
+   put item 1 of tNode into item 3 of line 1 of Leventseq
+   //put item 2 of tNode into item 2 of line 2 of Leventseq
+   //put item 1 of tNode into item 3 of line 2 of Leventseq
+   put "-SetDMX "before item 1 of line 1 of Leventseq
+   //put "-SetDMX "before item 1 of line 2 of Leventseq
+   put 96 into tDMXcommand
+   
+   repeat with x =1 to 1 // changed from x=1 to 2 when each buttons had 2 channels
+      put 250 into item 4 of line x of Leventseq
+      //put 250 into item 4 of Leventseq
+      put tChannel_Number -1 into tDMXstartChannel
+      
+      
+      //if tChannel_Number is not an integer or tChannel_Number < 1 then
+      //next repeat
+      //end if
+      put 0 into tDMXnumberOfChannels 
+      put trawdata into tDMXvalue
+      if char 1 of tDMXvalue = CR then 
+         delete char 1 of tDMXvalue
+         
+      end if
+      -- 8/10/18 rm
+      if not(tDMXvalue is an integer) then
+         next repeat
+      end if
+      -- 8/10/18 rm
+      put baseconvert(tDMXstartChannel,10,2) into tDMXstartChannelBinary
+      repeat until the number of chars in tDMXstartChannelBinary is 9
+         put 0&tDMXstartChannelBinary into tDMXstartChannelBinary
+      end repeat
+      put char 1 to 4 of tDMXstartChannelBinary into tDMXstartChannelHi
+      put baseconvert(tDMXstartChannelHi,2,10) into tDMXstartChannelHi
+      put tDMXcommand bitOr tDMXstartChannelHi into tParm1
+      put char 5 to 9 of tDMXstartChannelBinary into tDMXstartChannelLo
+      put baseconvert(tDMXnumberOfChannels,10,2) into tDMXnumberOfChannelsBinary
+      repeat until the number of chars in tDMXnumberOfChannelsBinary is 9
+         put 0&tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinary
+      end repeat
+      put char 1 to 3 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryHi
+      put char 4 to 9 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryLo
+      put tDMXstartChannelLo&tDMXnumberOfChannelsBinaryHi into tParm2
+      put baseconvert(tParm2,2,10) into tParm2
+      put baseconvert(tDMXvalue,10,2) into tDMXvalueBinary
+      repeat until the number of chars in tDMXvalueBinary is 8
+         put 0&tDMXvalueBinary into tDMXvalueBinary
+      end repeat
+      put char 1 to 2 of tDMXvalueBinary into tDMXvalueBinaryHi
+      put char 3 to 8 of tDMXvalueBinary into tDMXvalueBinaryLo
+      put tDMXnumberOfChannelsBinaryLo&tDMXvalueBinaryHi into tParm3
+      put baseconvert(tParm3,2,10) into tParm3
+      put tDMXvalueBinaryLo&00 into tParm4
+      put baseconvert(tParm4,2,10) into tParm4
+      put tParm1 into item 5 of line x of Leventseq// changed that put tParm1 into item 5 of line x of Leventseq
+      put tParm2 into item 6 of line x of Leventseq
+      put tParm3 into item 7 of line x of Leventseq
+      put tParm4 into item 8 of line x of Leventseq
+   end repeat
+   
+   return Leventseq
+end buildDMX2channelColorSequence
