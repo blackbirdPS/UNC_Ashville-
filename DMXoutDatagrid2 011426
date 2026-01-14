@@ -1,0 +1,428 @@
+-- 8/23a/18 rm
+
+local sMouseSingleUpMessageId
+global gDMXtableArray,gRAMbytesRead,stdstckname,theNode,grphstkname,gloRAMbytesRead
+global gCurrentDMXValues  -- stores all DMX channel info
+
+
+on mouseUp
+   if 104 is among the items of the keysdown then
+      if the blendlevel of me is 0 then
+         set the blendlevel of me to 50
+      else
+         set the blendlevel of me to 0
+      end if
+      exit to top
+   end if
+   set the blendlevel of me to 0
+   if the label of btn "SceneEditMode" of group "presets" is "Live" then
+      send "mouseSingleUp" to me in the doubleClickInterval millisecs
+   end if
+   put the result into sMouseSingleUpMessageId
+end mouseUp
+
+on mouseSingleUp pMouseBtnNum
+   put empty into sMouseSingleUpMessageId
+   global stdstckname,theNode,grphstkname,gRAMbytesRead
+   put the pDMXnodeNum of me into theNode
+   put the pGroupName of me into tGroupName
+   dgMouseDown pMouseBtnNum
+
+   put GetDataOfIndex(the dgHilitedIndexes of me, the dgColumn of the target) into theColumnValue
+
+   -- read the whole dgData
+   put the dgData of me into theDataGridArray
+
+   -- determine the active/target row (tRow)
+   put the dgIndex of the target into tRow
+   if tRow is empty then
+      put the dgHilitedLines of me into tRow
+      if tRow is empty then
+         put 1 into tRow
+      else
+         put item 1 of tRow into tRow  -- if multiple hilited, use first
+      end if
+   end if
+
+   -- build list of keys for iterating rows (same as before)
+   put keys(theDataGridArray) into tArrayKeys
+   sort lines of tArrayKeys numeric by item 2 of each
+
+   put fld "DMXRAMStartByte" of cd "Settings" of stack stdstckname into LfirstByteToRead
+   if LfirstByteToRead is not a number then
+      put 1520 into LfirstByteToRead
+   end if
+
+   -- compute starting byte for the selected channel (use theChannelNumber from tRow)
+   put theDataGridArray[tRow]["ChannelNumber"] into channel_number
+   put channel_number + LfirstByteToRead - 1 into LfirstByteToRead
+
+   put LfirstByteToRead div 256 into LhiByte
+   put LfirstByteToRead mod 256 into LlowByte
+   put LhiByte&comma&LlowByte&comma&1 into Lparameters
+   start using stack stdstckname
+   set the label of btn "theNode" of group "Menubuttons" of stack stdstckname to theNode
+   put QuickAsk2 (25,Lparameters) into LrawBytes
+   put LrawBytes into gRAMbytesRead
+   stop using stack stdstckname
+
+   -- update each row present in tArrayKeys using correct channel number for each
+   repeat for each line L in tArrayKeys
+      put item theDataGridArray[L]["ChannelNumber"] of gRAMbytesRead into LrawByte
+
+      if LrawByte is an integer then
+         put LrawByte into theDataGridArray[L]["ChannelLevel"]
+         put statround((LrawByte/255)*100)&"%" into theDataGridArray[L]["ChannelPercent"]
+      else
+         put "!" into theDataGridArray[L]["ChannelLevel"]
+         put "!" into theDataGridArray[L]["ChannelPercent"]
+      end if
+
+      if LrawByte < 18 then
+         put 0 into LrawByte
+         put "OFF" into theDataGridArray[L]["ChannelPercent"]
+      end if
+   end repeat
+
+   -- write the full updated array back to the datagrid (keeps dgData consistent)
+   set the dgData of me to theDataGridArray
+
+   -- compute tChannel1/tChannel2 from the first two keys (if present)
+   if the number of lines in tArrayKeys >= 1 then
+      put item 1 of tArrayKeys into tKey1
+      put theDataGridArray[tKey1]["ChannelLevel"] into tChannel1
+   else
+      put empty into tChannel1
+   end if
+   if the number of lines in tArrayKeys >= 2 then
+      put item 2 of tArrayKeys into tKey2
+      put theDataGridArray[tKey2]["ChannelLevel"] into tChannel2
+   else
+      put empty into tChannel2
+   end if
+
+   -- sanity checks (if not integers, exit)
+   if not (tChannel1 is an integer) then exit mouseSingleUp
+   if not (tChannel2 is an integer) then exit mouseSingleUp
+
+end mouseSingleUp
+
+
+on SetPercentForced pPercent
+   dispatch "HandleNewPercent" to me with pPercent
+   send "DMXGridComplete" to button "BtnDMXfixture"
+end SetPercentForced
+
+
+
+on mousedoubleup pMouseBtnNum
+   cancel sMouseSingleUpMessageId
+   global stdstckname,theNode,grphstkname
+   put the pDMXnodeNum of me into thenode
+   put the pGroupName of me into tGroupName
+   put GetDataOfIndex(the dgHilitedIndexes of me, the dgColumn of the target) into theColumnValue
+   --    put the dgData of me into theDataGridArray
+   put the dgData of me into theDataGridArray
+   put the dgHilitedLines of me into theLine
+   //put the dgDataOfLine[theLine] of me into theDataA
+   --    put the dgColumnName of the target
+   put theDataGridArray[1]["ChannelNumber"] into theDataA[ChannelNumber]
+   put theDataGridArray[1]["ChannelLevel"] into theDataA[ChannelLevel]
+   put theDataGridArray[1]["ChannelPercent"] into theDataA[ChannelPercent]
+   put the dgColumn of the target into tColumnName
+   
+   
+   
+   switch tColumnName
+      --case "ChannelNumber"
+      --ask question "What is the new ChannelNumber?" with theDataA[ChannelNumber] titled "Question"
+      --if the result is "cancel" then exit mousedoubleup
+      --put it into theDataA[ChannelNumber]
+      --set the dgDataOfLine[theLine] of me to theDataA
+      --break
+      --case "ChannelLabel"
+      --ask question "What is the new ChannelLabel?" with theDataA[ChannelLabel] titled "Question"
+      --if the result is "cancel" then exit mousedoubleup
+      --put it into theDataA[ChannelLabel]
+      --set the dgDataOfLine[theLine] of me to theDataA
+      --break
+      case "ChannelPercent"
+         --          ask question "What is the new ChannelPercent?" with theDataA[ChannelPercent] titled "Question"
+         put theDataA[ChannelPercent] into tPercent
+         if char -1 of tPercent is "%" then delete char -1 of tPercent
+         ask question "What is the new ChannelPercent?" with tPercent titled "Question"
+         if the result is "cancel" then exit mousedoubleup
+         put it into userInput
+         dispatch "HandleNewPercent" to me with userInput
+         
+         --if it is an integer then
+         --if it < 101 then
+         --put it into tPercent
+         --put tPercent&"%" into theDataA[ChannelPercent]
+         --put statround((tPercent/100)*255) into tDMXvalue
+         --put tDMXvalue into theDataA[ChannelLevel]
+         --put 96 into tDMXcommand
+         --put theDataA[ChannelNumber]-1 into tDMXstartChannel
+         --put 0 into tDMXnumberOfChannels
+         ---put baseconvert(tDMXstartChannel,10,2) into tDMXstartChannelBinary
+         --repeat until the number of chars in tDMXstartChannelBinary is 9
+         --put 0&tDMXstartChannelBinary into tDMXstartChannelBinary
+         --end repeat
+         --put char 1 to 4 of tDMXstartChannelBinary into tDMXstartChannelHi
+         --put baseconvert(tDMXstartChannelHi,2,10) into tDMXstartChannelHi
+         --put tDMXcommand bitOr tDMXstartChannelHi into tParm1
+         --put char 5 to 9 of tDMXstartChannelBinary into tDMXstartChannelLo
+         --put baseconvert(tDMXnumberOfChannels,10,2) into tDMXnumberOfChannelsBinary
+         --repeat until the number of chars in tDMXnumberOfChannelsBinary is 9
+         --put 0&tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinary
+         --end repeat
+         ---put char 1 to 3 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryHi
+         --put char 4 to 9 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryLo
+         --put tDMXstartChannelLo&tDMXnumberOfChannelsBinaryHi into tParm2
+         --put baseconvert(tParm2,2,10) into tParm2
+         --put baseconvert(tDMXvalue,10,2) into tDMXvalueBinary
+         --repeat until the number of chars in tDMXvalueBinary is 8
+         --put 0&tDMXvalueBinary into tDMXvalueBinary
+         --end repeat
+         --put char 1 to 2 of tDMXvalueBinary into tDMXvalueBinaryHi
+         --put char 3 to 8 of tDMXvalueBinary into tDMXvalueBinaryLo
+         --put tDMXnumberOfChannelsBinaryLo&tDMXvalueBinaryHi into tParm3
+         --put baseconvert(tParm3,2,10) into tParm3
+         --put tDMXvalueBinaryLo&00 into tParm4
+         --put baseconvert(tParm4,2,10) into tParm4
+         --put tParm1&comma&tParm2&comma&tParm3&comma&tParm4 into Lparameters
+         --                start using stack stdstckname
+         
+         --if the label of btn "SceneEditMode" of group "presets" is "Live" then
+         --set the defaultstack to stdstckname
+         ---set the label of btn "theNode" of group "Menubuttons" of stack  stdstckname to theNode
+         --                  QuickSend2 250,Lparameters
+         --call "QuickSend2 250,Lparameters" of stack stdstckname
+         --                   stop using stack stdstckname
+         --set the defaultstack to grphstkname
+         --end if
+         --set the dgDataOfLine[theLine] of me to theDataA
+         --put the dgData of me into theDataGridArray
+         --put theDataGridArray[1][ChannelLevel] into tChannel1
+         --put theDataGridArray[2][ChannelLevel] into tChannel2
+         --send "DMXGridComplete" to button "BtnDMXfixture"
+         -- 8/20/18 rm
+         --if not (tChannel1 is an integer) then
+         --exit to top
+         --end if
+         --if not (tChannel2 is an integer) then
+         --exit to top
+         --end if
+         
+         --set the dgHilitedlines of me to 0
+         --put linearDMXtableArraySearch (gDMXtableArray, tChannel1, tChannel2) into tArrayKey
+         --if tArrayKey is 0 then
+         --put "?" into tArrayKey
+         --end if
+         --set the label of btn "ColorTemperature popup" of group tGroupName to tArrayKey
+         --else
+         --  answer error "Invalid entry" titled "Error"
+         --exit to top
+         --end if
+         --else
+         --answer error "Invalid entry" titled "Error"
+         --exit to top
+         --end if 
+         break
+         
+         
+         
+   end switch
+   --    breakpoint
+   
+   
+   
+end mousedoubleup
+
+on mouseDown pBtnNum
+   ## Let Data Grid process mouseDown 
+   dgMouseDown pBtnNum
+   put the pGroupName of me into tGroupName	
+   if pBtnNum is 3 then
+      put the dgColumn of the target into theColumn
+      			
+      ## Get name of contextual button to use
+      put theColumn && "Popup" into theContextualButtonName
+      			
+      ## Display contextual if exists
+      if there is a button theContextualButtonName of group tGroupName then
+         popup button theContextualButtonName of group tGroupName
+      end if
+      --    end if
+   end if
+end mouseDown
+
+on AllStatus
+   put the dgData of me into theDataGridArray
+   
+   put item theDataGridArray[1][ChannelNumber] of gloRAMbytesRead into LrawByte
+   
+   if LrawByte is an integer then // changes made
+      put LrawByte into theDataGridArray[1][ChannelLevel]
+      put statround((LrawByte/255)*100)&"%" into theDataGridArray[1][ChannelPercent]
+   else
+      put "!" into theDataGridArray[1][ChannelLevel]
+      put "!" into theDataGridArray[1][ChannelPercent]
+      -- 8/20/18 rm
+   end if
+   
+   if LrawByte < 18 then
+      put 0 into LrawByte
+   end if
+   
+   if LrawByte < 18 then
+      put "OFF" into theDataGridArray[1][ChannelPercent]
+   end if
+   set the dgData of me to theDataGridArray
+end AllStatus
+
+on mouseEnter
+   
+   put the label of me into field "TooltipField"
+   set the textColor of field "TooltipField" to "black"
+   --Adjust the field size to fit the text
+   
+   -- Get the mouse location
+   put item 1 of the mouseLoc into xPos
+   put item 2 of the mouseLoc into yPos
+   
+   set the left of field "TooltipField" to xPos + 17  -- Slight offset to the right
+   set the top of field "TooltipField" to yPos + 15   -- Below the cursor
+   
+   set the fixedLineHeight of field "TooltipField" to true
+
+   set the width of field "TooltipField" to the formattedWidth of field "TooltipField"  -- Adjust width to text size
+   
+   show field "TooltipField"
+end mouseEnter
+
+on mouseLeave
+   hide field "TooltipField"
+end mouseLeave
+
+----------------------------------------------------
+-- Handles all DMX percent logic (shared by popup & SetPercentForced)
+----------------------------------------------------
+command HandleNewPercent pPercent
+   global stdstckname,theNode,grphstkname,gDMXtableArray
+   local tDMXvalue, tDMXcommand, tDMXstartChannel, tDMXnumberOfChannels
+   local tParm1, tParm2, tParm3, tParm4, Lparameters
+   local tGroupName, tLine, tDataA, theDataGridArray, tChannel1, tChannel2
+   
+   -- determine tLine (targeted row)
+   put the dgIndex of the target into tLine
+   if tLine is empty then
+      put the dgHilitedLines of me into tLine
+      if tLine is empty then put 1 into tLine else put item 1 of tLine into tLine
+   end if
+   
+   -- read current dgData array and row data
+   put the dgData of me into theDataGridArray
+   put theDataGridArray[tLine]["ChannelNumber"] into theDataA[ChannelNumber]
+   put theDataGridArray[tLine]["ChannelLevel"] into theDataA[ChannelLevel]
+   put theDataGridArray[tLine]["ChannelPercent"] into theDataA[ChannelPercent]
+   
+   -- VALIDATION
+   if pPercent is not an integer then
+      answer error "Invalid entry" titled "Error"
+      exit HandleNewPercent
+   end if
+   if pPercent > 100 then
+      answer error "Invalid entry" titled "Error"
+      exit HandleNewPercent
+   end if
+   
+   -- UPDATE GRID VALUES
+   put pPercent & "%" into theDataA[ChannelPercent]
+   put statround((pPercent/100)*255) into tDMXvalue
+   put tDMXvalue into theDataA[ChannelLevel]
+   
+   -- EXISTING DMX MATH (unchanged)
+   put 96 into tDMXcommand
+   put theDataA[ChannelNumber]-1 into tDMXstartChannel
+   put 0 into tDMXnumberOfChannels
+   
+   -- make sure tDMXstartChannel is numeric and non-negative
+   if tDMXstartChannel is empty or tDMXstartChannel < 0 then put 0 into tDMXstartChannel
+   
+   put baseconvert(tDMXstartChannel,10,2) into tDMXstartChannelBinary
+   repeat until the number of chars in tDMXstartChannelBinary is 9
+      put 0&tDMXstartChannelBinary into tDMXstartChannelBinary
+   end repeat
+   
+   put char 1 to 4 of tDMXstartChannelBinary into tDMXstartChannelHi
+   put baseconvert(tDMXstartChannelHi,2,10) into tDMXstartChannelHi
+   put tDMXcommand bitOr tDMXstartChannelHi into tParm1
+   
+   put char 5 to 9 of tDMXstartChannelBinary into tDMXstartChannelLo
+   put baseconvert(tDMXnumberOfChannels,10,2) into tDMXnumberOfChannelsBinary
+   repeat until the number of chars in tDMXnumberOfChannelsBinary is 9
+      put 0&tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinary
+   end repeat
+   
+   put char 1 to 3 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryHi
+   put char 4 to 9 of tDMXnumberOfChannelsBinary into tDMXnumberOfChannelsBinaryLo
+   put tDMXstartChannelLo & tDMXnumberOfChannelsBinaryHi into tParm2
+   
+   -- ensure tParm2 contains only 0/1 before baseconvert
+   replace any char that is not "0" or "1" with "0" in tParm2
+   put baseconvert(tParm2,2,10) into tParm2
+   
+   put baseconvert(tDMXvalue,10,2) into tDMXvalueBinary
+   repeat until the number of chars in tDMXvalueBinary is 8
+      put 0&tDMXvalueBinary into tDMXvalueBinary
+   end repeat
+   
+   put char 1 to 2 of tDMXvalueBinary into tDMXvalueBinaryHi
+   put char 3 to 8 of tDMXvalueBinary into tDMXvalueBinaryLo
+   
+   put tDMXnumberOfChannelsBinaryLo & tDMXvalueBinaryHi into tParm3
+   replace any char that is not "0" or "1" with "0" in tParm3
+   put baseconvert(tParm3,2,10) into tParm3
+   
+   put tDMXvalueBinaryLo & "00" into tParm4
+   replace any char that is not "0" or "1" with "0" in tParm4
+   put baseconvert(tParm4,2,10) into tParm4
+   
+   put tParm1&comma&tParm2&comma&tParm3&comma&tParm4 into Lparameters
+   
+   if the label of btn "SceneEditMode" of group "presets" is "Live" then
+      set the defaultstack to stdstckname
+      set the label of btn "theNode" of group "Menubuttons" of stack stdstckname to theNode
+      call "QuickSend2 250,Lparameters" of stack stdstckname
+      set the defaultstack to grphstkname
+   end if
+   
+   -- update the row in the internal array, then write the array back
+   put theDataA[ChannelLevel] into theDataGridArray[tLine]["ChannelLevel"]
+   put theDataA[ChannelPercent] into theDataGridArray[tLine]["ChannelPercent"]
+   put theDataA[ChannelNumber] into theDataGridArray[tLine]["ChannelNumber"]
+   
+   set the dgData of me to theDataGridArray
+   -- refresh the single row visually
+   dispatch "RefreshIndex" to me with tLine
+   
+   -- notify parent button(s)
+   --send "DMXGridComplete" to button "BtnDMXfixture"
+   
+   -- update UI helper values if needed
+   -- compute tChannel1/tChannel2 (example: use first two sorted keys)
+   --put keys(theDataGridArray) into tArrayKeys
+   //sort lines of tArrayKeys numeric by item 2 of each modification 01/14/2026
+   //if the number of lines in tArrayKeys >= 1 then
+      //put theDataGridArray[item 1 of tArrayKeys]["ChannelLevel"] into tChannel1
+   //end if
+   //if the number of lines in tArrayKeys >= 2 then
+      //put theDataGridArray[item 2 of tArrayKeys]["ChannelLevel"] into tChannel2
+   //end if
+   
+   //put linearDMXtableArraySearch(gDMXtableArray, tChannel1, tChannel2) into tArrayKey
+   //if tArrayKey is 0 then put "?" into tArrayKey
+   --set the label of button "ColorTemperature popup" of group (tGroupName) to tArrayKey
+   
+end HandleNewPercent
