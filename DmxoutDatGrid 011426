@@ -110,7 +110,7 @@ end mouseSingleUp
 
 on SetPercentForced pPercent
    dispatch "HandleNewPercent" to me with pPercent
-   send "DMXGridComplete" to button "BtnDMXfixture"
+   
 end SetPercentForced
 
 
