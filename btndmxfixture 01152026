@@ -1,471 +1,118 @@
--- 8/9/18
-
-local Lbtnname,Lorigicon,Ltype,currentread
-global stdstckname, channelp
-global iconOn, iconOff, iconHilited
-global updateValues
-
-on mouseenter
-   put 8843 into iconHilited
-   set the hoverIcon of me to iconHilited
-
-end mouseenter
-
-
-
-
-
-on mousedoubleup
-   global stdstckname,theNode,grphstkname
-   put the Ptype of me into Ltype
-   set the textcolor of me to "black"
-   ## following 8 properties added 5/12/06 RM
-   switch Ltype
-      case "bblLTRD" ## 7/18/14 RM
-         put the PDimOnIcon of me into LOnIcon
-         put the PDimOffIcon of me into LOffIcon
-         break
-      case "bblLTRDpower" ## 7/18/14 RM
-         put the PDimOnIcon of me into LOnIcon
-         put the PDimOffIcon of me into LOffIcon
-         break
-      case "DMX"
-         put the owner of me into tParentGroup
-         
-         if there is a group "DMXoutDataGrid" of tParentGroup then
-            put the dgData of group "DMXoutDataGrid" of tParentGroup into tData
-            put tData[1]["ChannelNumber"] into tChannelNum  -- or find the line matching the channel
-            put 1 into tLineToEdit  -- assuming first line; can calculate line based on channel
-            
-            -- Highlight the line you want
-            set the dgHilitedLines of group "DMXoutDataGrid" of tParentGroup to tLineToEdit
-            set the dgColumn of group "DMXoutDataGrid" of tParentGroup to "ChannelPercent"
-            
-            -- **Direct call** to the datagrid handler instead of sending a fake mouse
-            send "mousedoubleup" to group "DMXoutDataGrid2" of tParentGroup
-           
-            
-         end if
-         
-         break
-   end switch
-   if the controlkey is down then
-      call "menuPick Get Status" of me
-   else
-      put the keysdown into Lkeys ## changed from above 4/21/10 RM
-      switch Lkeys
-         case 49 ## 1 key
-            --set the icon of me to 331
-            break
-         case 110 ## n key
-            call "menuPick CONFIGURE|Fixture Node Number" of me
-            break
-         case 105 ## i key
-            call "menuPick CONFIGURE|Fixture I/O Number" of me
-            break
-         default
-            put Lorigicon into which ## 12/22/05 RM
-            switch which
-               # case "1076"
-               case LOnIcon
-                  call "menuPick Fixture Off" of me
-                  break
-               default
-                  call "menuPick Fixture On" of me
-                  break
-            end switch
-            break
-      end switch
-      
-   end if
-   exit to top
-end mousedoubleup
-
-
+on DMXGridComplete pWhichGrid
+   global stdstckname, theNode
+   global gDMXRAMCache
+   global iconOn, iconOff
    
-   
-
-
-
-
--- on mouseDown
-on mouseDown pMouseButton -- 8/9/18 rm
-   global Circuitlist,oldloc
-   global dimmerlist ## 5/12/11 RM
-   global AnalogOutputList ## 6/29/12 RM
-   #set the backcolor of me to "white"
-   -- begin 7/12/18 rm
-   global iconOn, iconOff, iconHilited, emOn, emOff
-   
-   put 1486525 into iconOn
-   put 1486523 into iconOff
-   put 1486526 into emOn --emergency On
-   put 1486524 into emOff
-   put 8843 into iconHilited
-   
-   if 104 is among the items of the keysdown then -- h key
-      if the blendlevel of me is 0 then
-         set the blendlevel of me to 75
-      else
-         set the blendlevel of me to 0
-      end if
-      exit to top
-   end if
-   
-   set the blendlevel of me to 0
-   -- end 7/12/18 rm
-   if the Plink of me is not empty then
-      put the Plink of me into Lbtnname
-      # set the backcolor of btn Lbtnname to "gray"
-      repeat for each line L in Lbtnname
-         if there is a btn L then
-            --set the icon of btn L to the icon of me
-         end if
-      end repeat
-   end if
-   put the loc of me into oldloc
-   
-   
-   --the Ptype has been set manually to DMX the menu items lines of the button has been deletedFixture On "Fixture Off Get Status Monitor Curren Configure Type My Name Fixture Node Number Fixture I//O Number Current Poll Link Clone
-   
-   
-   
-   set the Ptype of me to "DMX"
-   
-   
-   if the altkey is down then ## changed from above 4/20/10 RM
-      grab me
-      answer question "Are you sure you want to move this button?" with "Cancel" or "OK" titled "Question"
-      if it is "Cancel" then
-         set the loc of me to oldloc
-         send resizestack to this stack
-      else
-         answer question "Do you want to save the stack?" with "No" or "Yes" titled "Question" ## 8/1/12 RM
-         if it is "Yes" then
-            save this stack
-         end if
-      end if
-      send resizestack to this stack
-      exit to top
-      
-   else 
-      
-      put the Ptype of me into Ltype ## changed to switch structure and added LTD case 5/12/11 RM
-      switch Ltype
-         case "label"
-            set the tooltip of me to empty
-            exit mousedown
-            break
-         case "bblLTRDpower" ## 11/14/14 rm
-            put the IOnumber of me into ionum
-            put the PsensorNumber of me into LsensorNumber
-            put the PgroupLabel of me into LgroupLabel -- 12/19/17 rm
-            put (ln(ionum)/ln(2) + 1) into ionum
-            put comma&(the Pnodenum of me)&comma&(ionum)&comma into searchstring
-            put lineoffset(searchstring,Circuitlist) into linenum
-            set the itemdel to tab
-            put item 1 of the tooltip of me into LtoolTip
-            set the itemdel to comma
-            if LtoolTip is not item 1 of line linenum of Circuitlist&"(" &item 5 of line linenum of Circuitlist&")" then
-               --         set the tooltip of me to item 1 of line linenum of Circuitlist&"(" &item 5 of line linenum of Circuitlist&")"&tab&"Sensor "&LsensorNumber
-               set the tooltip of me to item 1 of line linenum of Circuitlist&"(" &item 5 of line linenum of Circuitlist&")"&tab&&"Sensor"&LsensorNumber&tab&&LgroupLabel -- 12/19/17 rm
-               answer question "The flyover text has changed. Do you want to save the stack?" with "No" or "Yes" titled "Question" ## 8/2/12 RM
-               if it is "Yes" then
-                  save this stack
-               end if
-            end if
-            break
-         case "DMX"
-            put the Ptype of me into Ltype
-            set the textcolor of me to "black"
-            put the owner of me into tParentGroup
-            
-            if there is a group "DMXoutDataGrid" of tParentGroup then
-               --send "mouseSingleUp" to group "DMXoutDataGrid" of tParentGroup
-               put the dgData of group "DMXoutDataGrid" of tParentGroup into tData
-               put tData[1]["ChannelPercent"] into channelp
-               --set the label of me to channelp 
-               --if channelp is not "OFF" then 
-                  --answer channelp
-                  --set the icon of me to iconON
-               --else 
-                  --set the icon of me to iconOff
-               --end if
-               
-               if there is a group "DMXoutDataGrid2" of tParentGroup then
-                  --send "mouseSingleUp" to group "DMXoutDataGrid2" of tParentGroup
-                  --put the dgData of group "DMXoutDataGrid2" of tParentGroup into tData
-                  --put tData[1]["ChannelPercent"] into channelp2
-                  --set the label of me to channelp2
-               end if 
-               
-            end if
-            
-            //put the label of me into Lnewlabel
-            
-            break
-      end switch
-      
-   end if
-end mouseDown
-
-
-
-on menuPick which
-   if the altkey is down then exit menupick
-   
-   global theNode,stdstckname,grphstkname,CSlist,GfastStates,iostat,nodelist,CircuitList,DimmerList,dimstat
-   global GpowerFromRAMarray -- 12/19/17 rm
-   put the Pnodenum of me into theNode
-   put the IOnumber of me into ionum
-   put the Ptype of me into Ltype
-   switch Ltype
-      case "bblLTRD" ## 7/18/14 rm
-         put the PDimOnIcon of me into LOnIcon
-         put the PDimOffIcon of me into LOffIcon
-         break
-      case "bblLTRDpower" ## 7/18/14 rm
-         put the PDimOnIcon of me into LOnIcon
-         put the PDimOffIcon of me into LOffIcon
-         break
-         --default
-         --put the POnIcon of me into LOnIcon
-         --put the POffIcon of me into LOffIcon
-         --break
-   end switch
-   
-   set the itemDel to "|"
-   switch item 1 of which #lots of modifications made here part of the code removed 12/9/2025
-      put the owner of me into tParentGroup
-   case "Fixture On"
-      put the owner of me into tParentGroup
-      dispatch "SetPercentForced" to group "DMXoutDataGrid" of tParentGroup with 90
-      send "DMXGridComplete" to me
-      break
-   case "Fixture Off"
-      put the owner of me into tParentGroup
-      dispatch "SetPercentForced" to group "DMXoutDataGrid" of tParentGroup with 3
-      send "DMXGridComplete" to me
-      break
-   case "Get Status"
-      put the owner of me into tParentGroup
-      wait 2 milliseconds
-      
-      --dispatch "mouseSingleUp" to group "DMXoutDataGrid2" of tParentGroup
-      send "DMXGridComplete" to me
-      
-      break
-   case "Set Dim Level"
-      put the owner of me into tParentGroup
-      dispatch "mousedoubleup" to group "DMXoutDataGrid2" of tParentGroup
-      wait 2 milliseconds
-      
-      --dispatch "mouseSingleUp" to group "DMXoutDataGrid2" of tParentGroup
-      send "DMXGridComplete" to me
-      break
-end switch
-
-
-end menuPick
-
-on mouseleave
-  if the Ptype of me is not "Label" then  ## 12/6/06 RM
-
-    if the Plink of me is not empty then
-      put the Plink of me into Lbtnname
-      # set the backcolor of btn Lbtnname to "gray"
-      repeat for each line L in Lbtnname
-        if there is a btn L then
-          --set the icon of btn L to the icon of me
-        end if
-      end repeat
-    end if
-    set the armed of me to false
-    wait 5
-
-  end if
-end mouseleave
-
-On DMXGridComplete pWhichGrid
-   global updateValues
-   global stdstckname,theNode,grphstkname
-   put the pDMXnodeNum of group "DMXoutDataGrid" into tthenode
-   put the pGroupName of me into ttGroupName
+   local tParentGroup, tBaseByte
+   local tGroups, tGridName, tGridIndex
+   local tDGData, tKeys, tRow
+   local tMinChan, tMaxChan
+   local tStartByte, tCount
+   local LhiByte, LlowByte, Lparameters, LrawBytes
+   local tChan, tAddr, tRaw, tPercent
    
    put the owner of me into tParentGroup
-   if pWhichGrid is empty or pWhichGrid = 1 then
-      -- Process DMXoutDataGrid
-      if there is a group "DMXoutDataGrid"  of tParentGroup then 
-         put the dgData of group "DMXoutDataGrid"  of tParentGroup  into theDataGridArray
-         put theDataGridArray[1]["ChannelNumber"] into channel_number
-         
-         put keys(theDataGridArray) into tArrayKeys
-         sort lines of tArrayKeys numeric by item 2 of each
-         put fld "DMXRAMStartByte" of cd "Settings" of stack stdstckname into LfirstByteToRead
-         if LfirstByteToRead is not a number then
-            put 1520 into LfirstByteToRead
-         end if
-         
-         put channel_number + LfirstByteToRead - 1 into LfirstByteToRead//changed 65 to channel_number
-         
-         put LfirstByteToRead div 256 into LhiByte
-         put LfirstByteToRead mod 256 into LlowByte
-         put LhiByte&comma&LlowByte&comma&1 into Lparameters// changed 65 to 1
-         start using stack stdstckname
-         set the label of btn "theNode" of group "Menubuttons" of stack  stdstckname to theNode
-         put QuickAsk2 (25,Lparameters) into LrawBytes
-         put LrawBytes into gRAMbytesRead
-         
-         stop using stack stdstckname
-         repeat for each line L in tArrayKeys
-            
-            //put item theDataGridArray[L][ChannelNumber] of gRAMbytesRead into LrawByte
-            put gRAMbytesRead into LrawByte
-            
-            if LrawByte is an integer then // changes made
-               put LrawByte into theDataGridArray[L][ChannelLevel]
-               put statround((LrawByte/255)*100)&"%" into theDataGridArray[L][ChannelPercent]
-            else
-               put "!" into theDataGridArray[L][ChannelLevel]
-               put "!" into theDataGridArray[L][ChannelPercent]
-               -- 8/20/18 rm
-            end if
-            
-            if LrawByte < 18 then
-               put 0 into LrawByte
-               set the icon of me to iconOff
-            else 
-               set the icon of me to iconOn
-            end if
-            
-         end repeat
-         set dgData of group "DMXoutDataGrid"  of tParentGroup  to theDataGridArray
-         put theDataGridArray[1][ChannelLevel] into tChannel1
-         -- 8/20/18 rm
-      end if 
+   
+   -- Base RAM byte
+   put fld "DMXRAMStartByte" of cd "Settings" of stack stdstckname into tBaseByte
+   if tBaseByte is not a number then put 1520 into tBaseByte
+   
+   put empty into tMinChan
+   put empty into tMaxChan
+   
+   ----------------------------------------------------------------
+   -- 1) FIND ALL DMX GRIDS + CHANNEL RANGE
+   ----------------------------------------------------------------
+   put the childControlNames of tParentGroup into tGroups
+   filter tGroups with "DMXoutDataGrid*"
+   
+   repeat for each line tGridName in tGroups
+      put the dgData of group tGridName of tParentGroup into tDGData
+      put keys(tDGData) into tKeys
       
-   end if
+      repeat for each line tRow in tKeys
+         put tDGData[tRow]["ChannelNumber"] into tChan
+         if tChan is not a number then next repeat
+         
+         if tMinChan is empty or tChan < tMinChan then put tChan into tMinChan
+         if tMaxChan is empty or tChan > tMaxChan then put tChan into tMaxChan
+      end repeat
+   end repeat
    
-   if pWhichGrid is empty or pWhichGrid = 2 then
-      if there is a group "DMXoutDataGrid2"  of tParentGroup then 
-         put the dgData of group "DMXoutDataGrid2"  of tParentGroup  into theDataGridArray2
-         
-         put theDataGridArray2[1]["ChannelNumber"] into channel_number2
-         
-         put keys(theDataGridArray2) into tArrayKeys2
-         sort lines of tArrayKeys2 numeric by item 2 of each
-         put fld "DMXRAMStartByte" of cd "Settings" of stack stdstckname into LfirstByteToRead2
-         if LfirstByteToRead2 is not a number then
-            put 1520 into LfirstByteToRead2
-         end if
-         
-         put channel_number2 + LfirstByteToRead2 - 1 into LfirstByteToRead2//changed 65 to channel_number
-         
-         put LfirstByteToRead2 div 256 into LhiByte
-         put LfirstByteToRead2 mod 256 into LlowByte
-         put LhiByte&comma&LlowByte&comma&1 into Lparameters// changed 65 to 1
-         start using stack stdstckname
-         set the label of btn "theNode" of group "Menubuttons" of stack  stdstckname to theNode
-         put QuickAsk2 (25,Lparameters) into LrawBytes2
-         put LrawBytes2 into gRAMbytesRead2
-         
-         stop using stack stdstckname
-         repeat for each line L in tArrayKeys2
-            
-            //put item theDataGridArray[L][ChannelNumber] of gRAMbytesRead into LrawByte
-            
-            
-            put gRAMbytesRead2 into LrawByte2
-            
-            if LrawByte2 is an integer then // changes made
-               put LrawByte2 into theDataGridArray2[L][ChannelLevel]
-               put statround((LrawByte2/255)*100)&"%" into theDataGridArray2[L][ChannelPercent]
-               put theDataGridArray2[L][ChannelPercent] into pvalue
-            else
-               put "!" into theDataGridArray2[L][ChannelLevel]
-               put "!" into theDataGridArray2[L][ChannelPercent]
-               put "!" into pvalue
-               -- 8/20/18 rm
-            end if
-            
-            
-            if LrawByte2 < 18 then
-               put 0 into LrawByte
-               Set the label of me to "OFF"
-            else 
-               set the label of me to pvalue
-            end if
-            
-            
-         end repeat
-         set dgData of group "DMXoutDataGrid2"  of tParentGroup to theDataGridArray2
-         put theDataGridArray2[1][ChannelLevel] into tChannel2
-         
-         -- 8/20/18 rm
-      end if 
+   if tMinChan is empty then exit DMXGridComplete
+   
+   ----------------------------------------------------------------
+   -- 2) READ ONLY REQUIRED HARDWARE BYTES
+   ----------------------------------------------------------------
+   put tBaseByte + tMinChan - 1 into tStartByte
+   put tMaxChan - tMinChan + 1 into tCount
+   
+   put tStartByte div 256 into LhiByte
+   put tStartByte mod 256 into LlowByte
+   put LhiByte & comma & LlowByte & comma & tCount into Lparameters
+   
+   start using stack stdstckname
+   set the label of btn "theNode" of group "Menubuttons" of stack stdstckname to theNode
+   put QuickAsk2(25, Lparameters) into LrawBytes
+   stop using stack stdstckname
+   
+   -- Cache bytes
+   repeat with i = 1 to tCount
+      put item i of LrawBytes into gDMXRAMCache[tMinChan + i - 1]
+   end repeat
+   
+   ----------------------------------------------------------------
+   -- 3) UPDATE ALL GRIDS FROM CACHE
+   ----------------------------------------------------------------
+   repeat for each line tGridName in tGroups
+      -- Extract grid index from name (DMXoutDataGrid = 1, DMXoutDataGrid2 = 2, etc.)
+      put char 15 to -1 of tGridName into tGridIndex
+      if tGridIndex is empty then put 1 into tGridIndex
       
-   end if
-   
-   
-   
-   
-   
-   
-   //put the dgData of group "DMXoutDataGrid" of tParentGroup into tData
-   //put tData[1]["ChannelPercent"] into tchannelp
-   //put tData[1]["ChannelLevel"] into channelL
-   
-   //if channelL < 18 then
-   //set the icon of me to iconOff
-   //else 
-   //set the icon of me to iconOn
-   //end if
-   
-   --set the label of me to channelp 
-   
-   //if there is a group "DMXoutDataGrid2" of tParentGroup then
-   //put the dgData of group "DMXoutDataGrid2" of tParentGroup into tData2
-   //put tData2[1]["ChannelPercent"] into tchannelp2
-   //put tData2[1]["ChannelLevel"] into channelL2
-   
-   //set the label of me to tchannelp2
-   //end if
-   //end if 
-   
+      -- Skip if we're only updating a specific grid
+      if pWhichGrid is not empty and pWhichGrid <> tGridIndex then next repeat
+      
+      put the dgData of group tGridName of tParentGroup into tDGData
+      put keys(tDGData) into tKeys
+      sort lines of tKeys numeric
+      
+      repeat for each line tRow in tKeys
+         put tDGData[tRow]["ChannelNumber"] into tChan
+         if tChan is not a number then next repeat
+         
+         -- Get value from cache using channel number
+         put gDMXRAMCache[tChan] into tRaw
+         
+         if tRaw is an integer then
+            put tRaw into tDGData[tRow]["ChannelLevel"]
+            put statround((tRaw / 255) * 100) & "%" into tPercent
+            put tPercent into tDGData[tRow]["ChannelPercent"]
+         else
+            put "!" into tDGData[tRow]["ChannelLevel"]
+            put "!" into tDGData[tRow]["ChannelPercent"]
+            put "!" into tPercent
+         end if
+      end repeat
+      
+      -- Set the data back to the grid
+      set the dgData of group tGridName of tParentGroup to tDGData
+      
+      -- Update UI based on first row of THIS grid
+      put tDGData[1]["ChannelLevel"] into tRaw
+      
+      if tRaw < 18 then
+         if tGridIndex = 1 then
+            set the icon of me to iconOff
+         else
+            set the label of me to "OFF"
+         end if
+      else
+         if tGridIndex = 1 then
+            set the icon of me to iconOn
+         else
+            put tDGData[1]["ChannelPercent"] into tPercent
+            set the label of me to tPercent
+         end if
+      end if
+   end repeat
 end DMXGridComplete
-
-on readcurrent
-  put the Pmask of me into Lmask
-  put the Ptimescale of me into Ltimescale
-  put the Pstate1 of me into Lstate1
-  put the Pstate2 of me into Lstate2
-  set the defaultstack to stdstckname
-  start using stack stdstckname
-  get QuickAsk2 (14, Lstate1 & "," & Lstate2&","&Ltimescale&comma&Lmask)
-  # call "QuickAsk2 (14&comma&Lstate1 &comma & Lstate2 &comma &Ltimescale&comma&Lmask)" of stack stdstckname
-  put it into reply
-  stop using stack stdstckname
-  switch item 1 of reply
-  case 0
-    put .0005 * 2^Ltimescale * item 2 of reply into currentread
-    break
-  case 1
-    put "No Current 1" into currentread
-    break
-  case 2
-    put "No Current 2" into currentread
-    break
-  case 3
-    put "No Current 3" into currentread
-    break
-  default
-    put "Not Resp." into currentread
-    break
-  end switch
-  return reply
-end readcurrent
-
-
-on focusOut
-   
-end focusOut
